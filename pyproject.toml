@@ -9,7 +9,15 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
-ignore = ["E501"]
+ignore = [
+    "E501",
+    # N999 flags the checkout directory itself, not our code. GitHub clones into
+    # a folder named after the repo ("Support-Bot"), and a hyphen is illegal in a
+    # Python module name -- so every __init__.py fails in CI while passing
+    # locally, where the folder is apple_support_bot. The repo root is never
+    # imported as a module, so the rule does not apply here.
+    "N999",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
