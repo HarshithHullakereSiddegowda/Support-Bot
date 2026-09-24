@@ -3,9 +3,9 @@ Session memory is largely handled automatically by LangGraph's PostgresSaver
 checkpointer (configured in graph.py). This node handles the trimming of
 history so we don't exceed context window limits.
 """
+from app.config import settings
 from app.graph.state import SupportBotState
 from app.observability.logging import get_logger
-from app.config import settings
 
 
 async def session_memory_node(state: SupportBotState) -> dict:

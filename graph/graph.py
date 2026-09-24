@@ -1,15 +1,4 @@
-from psycopg_pool import AsyncConnectionPool
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
-from app.graph.state import SupportBotState
-from app.graph.nodes.safety_gate import (
-    pii_scrub_node,
-    attack_detect_node,
-    safety_merge_node,
-)
-from app.graph.nodes.query_intelligence import query_intelligence_node
-from app.graph.nodes.session_memory import session_memory_node
+from app.graph.nodes.cache_store import cache_store_node
 from app.graph.nodes.context_retrieval import context_retrieval_node
 from app.graph.nodes.execution import (
     generate_flash_node,
@@ -19,13 +8,21 @@ from app.graph.nodes.execution import (
     route_execution,
 )
 from app.graph.nodes.output_validation import (
-    faithfulness_node,
     completeness_node,
+    faithfulness_node,
     validation_merge_node,
 )
-from app.graph.nodes.cache_store import cache_store_node
-from app.config import settings
-
+from app.graph.nodes.query_intelligence import query_intelligence_node
+from app.graph.nodes.safety_gate import (
+    attack_detect_node,
+    pii_scrub_node,
+    safety_merge_node,
+)
+from app.graph.nodes.session_memory import session_memory_node
+from app.graph.state import SupportBotState
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.graph import END, StateGraph
+from psycopg_pool import AsyncConnectionPool
 
 # Arbitrary but fixed: every process must use the same key for the lock to work.
 _SETUP_LOCK_ID = 8474219

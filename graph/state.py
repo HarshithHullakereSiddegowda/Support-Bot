@@ -1,5 +1,4 @@
-from typing import TypedDict, Literal, Annotated
-import operator
+from typing import Annotated, Literal, TypedDict
 
 
 def append_list(existing: list, new: list) -> list:

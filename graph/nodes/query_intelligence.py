@@ -1,11 +1,12 @@
 from pathlib import Path
 from typing import Literal
-from pydantic import BaseModel
-from langchain_google_genai import ChatGoogleGenerativeAI
+
+from app.config import settings
 from app.graph.state import SupportBotState
 from app.observability.logging import get_logger
-from app.config import settings
 from app.resilience.retry import llm_retry
+from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import BaseModel
 
 PROMPT_VERSION = "v1"
 _PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"

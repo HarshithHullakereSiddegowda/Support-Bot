@@ -1,5 +1,5 @@
 import sys
-import os
+import types
 from pathlib import Path
 
 repo_root = Path(__file__).parent.parent
@@ -11,9 +11,6 @@ repo_root = Path(__file__).parent.parent
 sys.path.insert(0, str(repo_root))
 
 # Patch: make `app` resolve to the repo root package
-import importlib
-import types
-
 if "app" not in sys.modules:
     app_module = types.ModuleType("app")
     app_module.__path__ = [str(repo_root)]

@@ -10,15 +10,14 @@ Usage:
 
 Set PAGEINDEX_API_KEY and MONGODB_URI in your environment or .env file.
 """
-import asyncio
 import argparse
+import asyncio
 import os
 import time
-import requests
-import motor.motor_asyncio
-from pageindex import PageIndexClient
-import pageindex.utils as utils
 
+import motor.motor_asyncio
+import pageindex.utils as utils
+from pageindex import PageIndexClient
 
 PAGEINDEX_API_KEY = os.environ["PAGEINDEX_API_KEY"]
 MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")

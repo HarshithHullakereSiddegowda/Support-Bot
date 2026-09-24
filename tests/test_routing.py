@@ -1,4 +1,3 @@
-import pytest
 
 from app.graph.nodes.execution import route_execution
 

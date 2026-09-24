@@ -4,17 +4,16 @@ LangGraph fans them out in parallel natively from the entry point.
 No asyncio.gather needed — and both appear as separate spans in LangSmith.
 """
 import asyncio
+
 import httpx
 import pybreaker
-
-from presidio_analyzer import AnalyzerEngine
-from presidio_anonymizer import AnonymizerEngine
-
+from app.config import settings
 from app.graph.state import SupportBotState
 from app.observability.logging import get_logger
 from app.resilience.breakers import rival_breaker
 from app.resilience.retry import http_retry
-from app.config import settings
+from presidio_analyzer import AnalyzerEngine
+from presidio_anonymizer import AnonymizerEngine
 
 _analyzer = AnalyzerEngine()
 _anonymizer = AnonymizerEngine()

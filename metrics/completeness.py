@@ -1,8 +1,9 @@
 from pathlib import Path
-from langchain_google_genai import ChatGoogleGenerativeAI
+
 from app.config import settings
 from app.llm_output import as_text
 from app.resilience.retry import llm_retry
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # parents[1] not [2] — this file sits one level down (metrics/), not two.
 _PROMPT = (Path(__file__).resolve().parents[1] / "prompts" / "v1" / "completeness_judge.txt").read_text()

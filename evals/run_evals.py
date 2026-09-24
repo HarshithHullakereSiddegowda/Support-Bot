@@ -13,8 +13,8 @@ Outputs a JSON report and compares against baseline if available.
 import asyncio
 import json
 import os
-import time
 import sys
+import time
 from pathlib import Path
 
 import httpx
@@ -258,9 +258,9 @@ async def main():
     if comparison.get("has_regressions"):
         print("\n!! REGRESSIONS DETECTED:")
         for reg in comparison["regressions"]:
-            detail = reg.get("detail") or f"{reg.get('change_pct', 0)}% change"                                       
-            print(f"  - {reg['metric']}: {detail}")                                                                   
-            
+            detail = reg.get("detail") or f"{reg.get('change_pct', 0)}% change"
+            print(f"  - {reg['metric']}: {detail}")
+
     # Write report
     report_path = Path("evals/reports/latest.json")
     report_path.parent.mkdir(parents=True, exist_ok=True)

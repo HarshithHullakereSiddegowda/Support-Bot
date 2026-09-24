@@ -33,7 +33,6 @@ async def eval_query_intelligence_routing():
         expected_complexity = case.get("expected_complexity")
         expected_decomp = case.get("needs_decomp", False)
         expected_sub_count = case.get("sub_query_count")
-        expected_model = case.get("expected_model")
 
         # Simulate state after query_intelligence runs
         state = {

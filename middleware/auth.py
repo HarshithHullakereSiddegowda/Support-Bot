@@ -1,7 +1,7 @@
+from app.config import settings
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from jose import jwt, JWTError
-from app.config import settings
+from jose import JWTError, jwt
 
 
 async def auth_middleware(request: Request, call_next):

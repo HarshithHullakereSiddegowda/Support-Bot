@@ -7,14 +7,13 @@ Output validation: two independent LangGraph nodes run in parallel.
 Both fan out from the execution node(s) and converge at validation_merge.
 asyncio.gather is NOT used here — LangGraph handles the concurrency.
 """
-from openai import AsyncOpenAI
-from ragas.llms import llm_factory
-from ragas.metrics.collections import Faithfulness
-
+from app.config import settings
 from app.graph.state import SupportBotState
 from app.metrics.completeness import score_completeness
 from app.observability.logging import get_logger
-from app.config import settings
+from openai import AsyncOpenAI
+from ragas.llms import llm_factory
+from ragas.metrics.collections import Faithfulness
 
 # Ragas decomposes the answer into claims and checks each against the context.
 # With several retrieved sections the default output cap is too small and the

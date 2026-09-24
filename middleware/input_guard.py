@@ -1,7 +1,8 @@
 import json
+
+from app.config import settings
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from app.config import settings
 
 
 async def input_guard_middleware(request: Request, call_next):

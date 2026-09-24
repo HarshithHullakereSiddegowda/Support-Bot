@@ -7,8 +7,9 @@ startup via lifespan, then serves fast inference requests.
 Deploy this separately from the main app — it needs its own memory budget
 (~1.5–2GB for the model) and should be independently scalable.
 """
-import uvicorn
 from contextlib import asynccontextmanager
+
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from rival_ai.detectors import BhairavaAttackDetector

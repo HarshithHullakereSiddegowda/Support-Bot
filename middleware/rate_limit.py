@@ -1,6 +1,6 @@
+from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from fastapi import Request
 
 
 def get_user_id(request: Request) -> str:

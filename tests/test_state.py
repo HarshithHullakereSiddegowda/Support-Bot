@@ -1,4 +1,3 @@
-import pytest
 
 from app.graph.state import SupportBotState, append_list
 

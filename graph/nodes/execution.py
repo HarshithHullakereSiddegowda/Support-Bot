@@ -1,13 +1,13 @@
 from pathlib import Path
+
+from app.config import settings
+from app.graph.state import SupportBotState
+from app.llm_output import as_text
+from app.observability.logging import get_logger
+from app.resilience.retry import llm_retry
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langgraph.types import Send
-
-from app.graph.state import SupportBotState
-from app.observability.logging import get_logger
-from app.resilience.retry import llm_retry
-from app.config import settings
-from app.llm_output import as_text
 
 # Anchored to this file's location, not the process CWD — the app is launched
 # from three different directories (Docker /srv, pytest repo root, CI checkout).

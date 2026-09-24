@@ -1,10 +1,9 @@
 import httpx
 import pybreaker
-
+from app.config import settings
 from app.graph.state import SupportBotState
 from app.observability.logging import get_logger
 from app.resilience.breakers import gptcache_breaker
-from app.config import settings
 
 
 async def cache_store_node(state: SupportBotState) -> dict:
