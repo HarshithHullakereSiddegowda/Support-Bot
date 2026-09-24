@@ -57,7 +57,7 @@ async def _call_rival(query: str) -> dict:
 async def attack_detect_node(state: SupportBotState) -> dict:
     log = get_logger(state["request_id"], node="attack_detect")
     try:
-        with rival_breaker:
+        with rival_breaker.calling():
             result = await _call_rival(state["raw_query"])
     except pybreaker.CircuitBreakerError:
         log.warning("rival_circuit_open")
@@ -66,14 +66,23 @@ async def attack_detect_node(state: SupportBotState) -> dict:
         log.warning("rival_call_failed", error=str(exc))
         result = {"is_attack": False, "confidence": 0.0}
 
+    # Require BOTH the detector's own flag and a confidence above the floor.
+    # See ATTACK_CONFIDENCE_THRESHOLD in config.py for why the raw flag alone
+    # is not safe to gate traffic on.
+    confidence = result["confidence"]
+    raw_flag = result["is_attack"]
+    is_attack = bool(raw_flag) and confidence >= settings.ATTACK_CONFIDENCE_THRESHOLD
+
     log.info(
         "attack_detect_complete",
-        is_attack=result["is_attack"],
-        confidence=result["confidence"],
+        is_attack=is_attack,
+        detector_flag=raw_flag,
+        confidence=confidence,
+        threshold=settings.ATTACK_CONFIDENCE_THRESHOLD,
     )
     return {
-        "is_attack": result["is_attack"],
-        "attack_confidence": result["confidence"],
+        "is_attack": is_attack,
+        "attack_confidence": confidence,
     }
 
 

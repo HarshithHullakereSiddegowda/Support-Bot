@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from fastapi import HTTPException
 
 from app.middleware.input_guard import input_guard_middleware
 
@@ -30,20 +29,22 @@ async def test_passes_valid_query(make_request):
 
 @pytest.mark.asyncio
 async def test_rejects_empty_query(make_request):
+    # The middleware must RETURN a 400 response, not raise. An HTTPException
+    # raised in middleware escapes FastAPI's handler and the client sees a 500.
     request = make_request(body={"query": ""})
     call_next = AsyncMock()
-    with pytest.raises(HTTPException) as exc_info:
-        await input_guard_middleware(request, call_next)
-    assert exc_info.value.status_code == 400
+    response = await input_guard_middleware(request, call_next)
+    assert response.status_code == 400
+    call_next.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_rejects_oversized_query(make_request):
     request = make_request(body={"query": "x" * 5000})
     call_next = AsyncMock()
-    with pytest.raises(HTTPException) as exc_info:
-        await input_guard_middleware(request, call_next)
-    assert exc_info.value.status_code == 400
+    response = await input_guard_middleware(request, call_next)
+    assert response.status_code == 400
+    call_next.assert_not_awaited()
 
 
 @pytest.mark.asyncio

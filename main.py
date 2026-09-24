@@ -1,8 +1,9 @@
 import uuid
 from contextlib import asynccontextmanager
 
-import asyncpg
 import httpx
+from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
@@ -26,7 +27,18 @@ _pg_pool = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _graph, _pg_pool
-    _pg_pool = await asyncpg.create_pool(settings.POSTGRES_DSN, min_size=2, max_size=10)
+    # LangGraph's AsyncPostgresSaver is built on psycopg, NOT asyncpg — handing it
+    # an asyncpg pool raises "Invalid connection type: asyncpg.pool.Pool".
+    # autocommit=True is required by checkpointer.setup(); prepare_threshold=0
+    # keeps it safe behind connection poolers; dict_row is what the saver expects.
+    _pg_pool = AsyncConnectionPool(
+        conninfo=settings.POSTGRES_DSN,
+        min_size=2,
+        max_size=10,
+        kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+        open=False,
+    )
+    await _pg_pool.open()
     _graph = await build_graph(_pg_pool)
     yield
     await _pg_pool.close()
@@ -94,7 +106,11 @@ async def query_endpoint(body: QueryRequest, request: Request):
     log.info("request_received", query_length=len(body.query))
 
     # ── Cache check (before graph) ────────────────────────────────────────────
-    cached = await check_cache(body.query)
+    # A cache hit returns hardcoded faithfulness/completeness of 1.0, so any
+    # eval that hits the cache measures nothing. Callers that need to exercise
+    # the real graph send X-Bypass-Cache.
+    bypass_cache = request.headers.get("X-Bypass-Cache", "").lower() in ("1", "true", "yes")
+    cached = None if bypass_cache else await check_cache(body.query)
     if cached:
         log.info("cache_hit")
         return QueryResponse(
@@ -125,7 +141,9 @@ async def query_endpoint(body: QueryRequest, request: Request):
         "needs_decomp": False,
         "prompt_version": "",
         "current_subquery": "",
-        "session_history": [],
+        # session_history is deliberately NOT seeded here. Any value passed in
+        # overwrites what the checkpointer restored for this thread_id, and an
+        # empty list would wipe the conversation on every single request.
         "retrieved_context": [],
         "sub_responses": [],
         "raw_response": "",

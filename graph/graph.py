@@ -1,4 +1,4 @@
-import asyncpg
+from psycopg_pool import AsyncConnectionPool
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
@@ -27,11 +27,15 @@ from app.graph.nodes.cache_store import cache_store_node
 from app.config import settings
 
 
+# Arbitrary but fixed: every process must use the same key for the lock to work.
+_SETUP_LOCK_ID = 8474219
+
+
 def _route_after_safety(state: SupportBotState) -> str:
     return END if state.get("is_attack") else "query_intelligence"
 
 
-async def build_graph(pool: asyncpg.Pool):
+async def build_graph(pool: AsyncConnectionPool):
     """
     Compile and return the LangGraph graph with PostgresSaver checkpointer.
     Call once at app startup.
@@ -42,7 +46,19 @@ async def build_graph(pool: asyncpg.Pool):
     3. generate_subquery fan-out  — dynamic via Send API (number known only at runtime)
     """
     checkpointer = AsyncPostgresSaver(pool)
-    await checkpointer.setup()
+
+    # Every uvicorn worker runs this at startup. checkpointer.setup() issues
+    # CREATE TYPE, which Postgres cannot express as IF NOT EXISTS, so concurrent
+    # workers race and the loser dies with:
+    #   UniqueViolation: duplicate key ... "pg_type_typname_nsp_index"
+    # A session-level advisory lock serialises schema setup across workers — and
+    # across ECS tasks in production, where several containers boot together.
+    async with pool.connection() as conn:
+        await conn.execute("SELECT pg_advisory_lock(%s)", (_SETUP_LOCK_ID,))
+        try:
+            await checkpointer.setup()
+        finally:
+            await conn.execute("SELECT pg_advisory_unlock(%s)", (_SETUP_LOCK_ID,))
 
     g = StateGraph(SupportBotState)
 
@@ -72,7 +88,14 @@ async def build_graph(pool: asyncpg.Pool):
     g.add_edge("attack_detect", "safety_merge")
 
     # After merge: reject attacks, otherwise continue
-    g.add_conditional_edges("safety_merge", _route_after_safety)
+    # The path_map is not optional cosmetics: without it LangGraph cannot know
+    # where this branch can lead, so draw_mermaid/LangSmith render the graph as
+    # ending at safety_merge and every node after it appears unreachable.
+    g.add_conditional_edges(
+        "safety_merge",
+        _route_after_safety,
+        {"query_intelligence": "query_intelligence", END: END},
+    )
 
     g.add_edge("query_intelligence", "session_memory")
     g.add_edge("session_memory", "context_retrieval")

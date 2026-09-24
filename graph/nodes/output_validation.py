@@ -16,9 +16,16 @@ from app.metrics.completeness import score_completeness
 from app.observability.logging import get_logger
 from app.config import settings
 
+# Ragas decomposes the answer into claims and checks each against the context.
+# With several retrieved sections the default output cap is too small and the
+# judge aborts with "output is incomplete due to a max_tokens length limit".
 _faithfulness_scorer = Faithfulness(
-    llm=llm_factory("gpt-4o-mini", client=AsyncOpenAI())
+    llm=llm_factory("gpt-4o-mini", client=AsyncOpenAI(), max_tokens=4096)
 )
+
+# Guard rail on the input side too: 4 sections of a 100-page manual is a lot of
+# tokens to hand a judge, and cost scales with it.
+_MAX_CONTEXT_CHARS = 6000
 
 
 # ── Node A: Ragas faithfulness ────────────────────────────────────────────────
@@ -32,12 +39,22 @@ async def faithfulness_node(state: SupportBotState) -> dict:
         log.info("faithfulness_skipped", reason="no_context")
         return {"faithfulness_score": 1.0}
 
-    result = await _faithfulness_scorer.ascore(
-        user_input=state["scrubbed_query"],
-        response=state["raw_response"],
-        retrieved_contexts=context,
-    )
-    score = float(result.value)
+    trimmed = [c[:_MAX_CONTEXT_CHARS] for c in context]
+
+    # Node contract: catch our own dependency failures and return a safe default.
+    # This node was the only one that could raise, and a single judge hiccup
+    # turned a good answer into a 503 for the user.
+    try:
+        result = await _faithfulness_scorer.ascore(
+            user_input=state["scrubbed_query"],
+            response=state["raw_response"],
+            retrieved_contexts=trimmed,
+        )
+        score = float(result.value)
+    except Exception as exc:
+        log.warning("faithfulness_failed", error=str(exc)[:200])
+        return {"faithfulness_score": 1.0}
+
     log.info("faithfulness_complete", score=round(score, 3))
     return {"faithfulness_score": score}
 

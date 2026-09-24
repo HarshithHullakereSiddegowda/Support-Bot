@@ -1,4 +1,3 @@
-version: "3.9"
 
 services:
 
@@ -12,10 +11,16 @@ services:
     environment:
       - LANGCHAIN_TRACING_V2=true
       - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+      # Without this every environment writes traces into the "default" project,
+      # so local runs, CI and production are impossible to tell apart.
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-apple-support-bot-local}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - PAGEINDEX_API_KEY=${PAGEINDEX_API_KEY}
+      - LOW_COMPLEXITY_MODEL=${LOW_COMPLEXITY_MODEL:-gemini-3.5-flash}
+      - HIGH_COMPLEXITY_MODEL=${HIGH_COMPLEXITY_MODEL:-gemini-3.8-flash}
+      - UTILITY_MODEL=${UTILITY_MODEL:-gemini-3.5-flash}
       - GPTCACHE_URL=http://gptcache:8000
       - RIVAL_URL=http://rival-service:8002
       - MONGODB_URI=mongodb://mongodb:27017
@@ -39,11 +44,22 @@ services:
     ports:
       - "8002:8002"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      # python:3.11-slim ships no curl — the old `curl -f` test could never pass,
+      # so the container sat "unhealthy" forever and blocked `app` via depends_on.
+      # urllib is in the stdlib, so this needs nothing extra installed.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health').read()"]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 30s   # model takes a moment to load
+      # Bhairava-0.4B (~2GB) is pulled from the HF Hub on FIRST boot, not at
+      # build time, so a cold start is a multi-minute download. 30s marked the
+      # service unhealthy mid-download and blocked `app` from ever starting.
+      # Proper fix: bake the model into the image at build time (see Dockerfile).
+      start_period: 900s
+    volumes:
+      # Without this the 1.5GB Bhairava download lives in the container's
+      # ephemeral layer and is lost on every `docker compose up --force-recreate`.
+      - hf_cache:/root/.cache/huggingface
     deploy:
       resources:
         limits:
@@ -87,6 +103,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  hf_cache:
   mongo_data:
   pg_data:
   gptcache_data:

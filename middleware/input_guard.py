@@ -1,5 +1,6 @@
 import json
-from fastapi import Request, HTTPException
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from app.config import settings
 
 
@@ -12,20 +13,20 @@ async def input_guard_middleware(request: Request, call_next):
         try:
             data = json.loads(body)
         except (json.JSONDecodeError, UnicodeDecodeError):
-            raise HTTPException(status_code=400, detail="Invalid JSON body")
+            return JSONResponse(status_code=400, content={"detail": "Invalid JSON body"})
 
         query = data.get("query", "")
 
         if not isinstance(query, str):
-            raise HTTPException(status_code=400, detail="query must be a string")
+            return JSONResponse(status_code=400, content={"detail": "query must be a string"})
 
         if not query.strip():
-            raise HTTPException(status_code=400, detail="query must not be empty")
+            return JSONResponse(status_code=400, content={"detail": "query must not be empty"})
 
         if len(query) > settings.MAX_INPUT_CHARS:
-            raise HTTPException(
+            return JSONResponse(
                 status_code=400,
-                detail=f"query exceeds maximum length of {settings.MAX_INPUT_CHARS} characters",
+                content={"detail": f"query exceeds maximum length of {settings.MAX_INPUT_CHARS} characters"},
             )
 
     return await call_next(request)

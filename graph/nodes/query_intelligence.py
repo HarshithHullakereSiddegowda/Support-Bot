@@ -4,10 +4,12 @@ from pydantic import BaseModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.graph.state import SupportBotState
 from app.observability.logging import get_logger
+from app.config import settings
 from app.resilience.retry import llm_retry
 
 PROMPT_VERSION = "v1"
-_PROMPT_TEMPLATE = Path(f"prompts/{PROMPT_VERSION}/query_intelligence.txt").read_text()
+_PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+_PROMPT_TEMPLATE = (_PROMPT_DIR / PROMPT_VERSION / "query_intelligence.txt").read_text()
 
 
 class QueryAnalysis(BaseModel):
@@ -17,7 +19,7 @@ class QueryAnalysis(BaseModel):
     needs_decomp: bool
 
 
-_llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash").with_structured_output(
+_llm = ChatGoogleGenerativeAI(model=settings.UTILITY_MODEL).with_structured_output(
     QueryAnalysis
 )
 

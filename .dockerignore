@@ -1,0 +1,36 @@
+# Everything listed here is invisible to `COPY . ./app/` in the Dockerfile.
+# Without this file, `COPY .` sweeps in secrets, local virtualenvs and caches.
+
+# Secrets — NEVER bake these into an image. In production they arrive at
+# runtime from Secrets Manager via the ECS task definition.
+.env
+.env.local
+
+# Local virtualenv — the image installs its own packages from requirements.txt.
+# Copying this in added 1.7 GB of macOS-built wheels the container cannot use.
+.venv
+venv
+env
+
+# Version control and CI — not needed at runtime
+.git
+.github
+.gitignore
+
+# Python caches — rebuilt inside the container anyway
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# Infra and docs — not part of the running service
+terraform
+*.md
+Dockerfile
+docker-compose.yml
+
+# Eval reports are generated, not shipped
+evals/reports

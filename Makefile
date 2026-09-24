@@ -40,3 +40,6 @@ tf-plan:
 
 tf-apply:
 	cd terraform && terraform apply
+
+
+	

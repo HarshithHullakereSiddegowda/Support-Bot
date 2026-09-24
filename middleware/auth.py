@@ -1,4 +1,5 @@
-from fastapi import Request, HTTPException
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from jose import jwt, JWTError
 from app.config import settings
 
@@ -8,9 +9,12 @@ async def auth_middleware(request: Request, call_next):
     if request.url.path in ("/health", "/docs", "/openapi.json"):
         return await call_next(request)
 
+    # NOTE: return, do not raise. HTTPException raised inside middleware is not
+    # caught by FastAPI's handler (that only wraps route handlers), so it escapes
+    # as an unhandled error and the client gets 500 instead of 401.
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or malformed token")
+        return JSONResponse(status_code=401, content={"detail": "Missing or malformed token"})
 
     token = auth_header.removeprefix("Bearer ").strip()
     try:
@@ -18,6 +22,6 @@ async def auth_middleware(request: Request, call_next):
         request.state.user_id = payload["sub"]
         request.state.user_payload = payload
     except JWTError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
+        return JSONResponse(status_code=401, content={"detail": f"Invalid token: {e}"})
 
     return await call_next(request)

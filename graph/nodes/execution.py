@@ -7,8 +7,12 @@ from app.graph.state import SupportBotState
 from app.observability.logging import get_logger
 from app.resilience.retry import llm_retry
 from app.config import settings
+from app.llm_output import as_text
 
-_GENERATION_PROMPT = Path("prompts/v1/generation.txt").read_text()
+# Anchored to this file's location, not the process CWD — the app is launched
+# from three different directories (Docker /srv, pytest repo root, CI checkout).
+_PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+_GENERATION_PROMPT = (_PROMPT_DIR / "v1" / "generation.txt").read_text()
 
 
 def _get_model(complexity: str):
@@ -40,7 +44,7 @@ async def _generate(query: str, context: list[str], history: list[dict], complex
     prompt = _build_prompt(query, context, history)
     result = await model.ainvoke(prompt)
     model_name = settings.LOW_COMPLEXITY_MODEL if complexity == "low" else settings.HIGH_COMPLEXITY_MODEL
-    return result.content, model_name
+    return as_text(result.content), model_name
 
 
 async def generate_flash_node(state: SupportBotState) -> dict:

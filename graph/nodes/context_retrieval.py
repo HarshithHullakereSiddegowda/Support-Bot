@@ -8,6 +8,7 @@ from app.graph.state import SupportBotState
 from app.observability.logging import get_logger
 from app.resilience.breakers import pageindex_breaker
 from app.config import settings
+from app.llm_output import as_text
 
 _mongo_client = None
 
@@ -18,7 +19,7 @@ def get_mongo():
     return _mongo_client.support_bot
 
 
-_tree_search_llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
+_tree_search_llm = ChatGoogleGenerativeAI(model=settings.UTILITY_MODEL, temperature=0)
 
 _TREE_SEARCH_PROMPT = """
 You are given a question and a tree structure of an Apple support document.
@@ -62,7 +63,12 @@ async def _search_tree(tree: list, query: str) -> list[dict]:
         tree_json=json.dumps(stripped, indent=2),
     )
     result = await _tree_search_llm.ainvoke(prompt)
-    node_ids = json.loads(result.content)["node_list"]
+    # .content is a list of content blocks on newer Gemini models, and the model
+    # often wraps its JSON in a ```json fence despite being told not to.
+    raw = as_text(result.content).strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1].removeprefix("json").strip()
+    node_ids = json.loads(raw)["node_list"]
     node_map = _build_node_map(tree)
     return [node_map[nid] for nid in node_ids if nid in node_map]
 
@@ -71,7 +77,7 @@ async def context_retrieval_node(state: SupportBotState) -> dict:
     log = get_logger(state["request_id"], node="context_retrieval")
 
     try:
-        with pageindex_breaker:
+        with pageindex_breaker.calling():
             db = get_mongo()
             doc = await db.document_trees.find_one({"doc_id": "apple-support"})
             if not doc:

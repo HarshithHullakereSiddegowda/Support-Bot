@@ -37,3 +37,7 @@ evals/reports/
 
 # Docker
 *.log
+
+# Apple's copyrighted user guide — fetch it yourself, do not redistribute.
+# See CLAUDE.md 3.1 for the indexing command.
+*.pdf

@@ -1,10 +1,13 @@
 from pathlib import Path
 from langchain_google_genai import ChatGoogleGenerativeAI
+from app.config import settings
+from app.llm_output import as_text
 from app.resilience.retry import llm_retry
 
-_PROMPT = Path("prompts/v1/completeness_judge.txt").read_text()
+# parents[1] not [2] — this file sits one level down (metrics/), not two.
+_PROMPT = (Path(__file__).resolve().parents[1] / "prompts" / "v1" / "completeness_judge.txt").read_text()
 
-_judge = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
+_judge = ChatGoogleGenerativeAI(model=settings.UTILITY_MODEL, temperature=0)
 
 
 @llm_retry
@@ -28,7 +31,7 @@ async def score_completeness(
     result = await _judge.ainvoke(prompt)
 
     try:
-        score = float(result.content.strip())
+        score = float(as_text(result.content).strip())
         return max(0.0, min(1.0, score))
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError, TypeError):
         return 0.5  # safe default on parse failure

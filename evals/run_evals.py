@@ -12,6 +12,7 @@ Outputs a JSON report and compares against baseline if available.
 """
 import asyncio
 import json
+import os
 import time
 import sys
 from pathlib import Path
@@ -24,9 +25,21 @@ from evals.config import eval_settings
 DATASET_PATH = Path(eval_settings.DATASET_FILE)
 BASELINE_PATH = Path(eval_settings.BASELINE_FILE)
 
+# "flash" / "pro" in the golden dataset are TIER names, not model names. Resolve
+# them against the models this deployment actually routes to, so the dataset does
+# not have to be rewritten every time a model id changes.
+TIER_MODELS = {
+    "flash": os.environ.get("LOW_COMPLEXITY_MODEL", "gemini-3.1-flash-lite"),
+    "pro": os.environ.get("HIGH_COMPLEXITY_MODEL", "gemini-3.5-flash"),
+}
+
 TOKEN_COST_PER_1K = {
+    "gemini-3.1-flash-lite": 0.00005,
+    "gemini-3.6-flash": 0.0002,
     "gemini-3.5-flash": 0.0001,
-    "gemini-3.1-pro": 0.007,
+    # TODO verify against current Google pricing before trusting the cost gate
+    "gemini-3.8-flash": 0.0004,
+    "gemini-3.1-pro-preview": 0.007,
     "gpt-4o": 0.005,
     "gpt-4o-mini": 0.00015,
 }
@@ -38,7 +51,9 @@ def _make_token(user_id: str = "eval-runner") -> str:
 
 async def run_single_eval(client: httpx.AsyncClient, case: dict) -> dict:
     token = _make_token()
-    headers = {"Authorization": f"Bearer {token}"}
+    # Never let the cache answer an eval: cached responses carry fabricated
+    # faithfulness/completeness of 1.0 and model_used="cache".
+    headers = {"Authorization": f"Bearer {token}", "X-Bypass-Cache": "true"}
 
     start = time.perf_counter()
     try:
@@ -46,7 +61,7 @@ async def run_single_eval(client: httpx.AsyncClient, case: dict) -> dict:
             f"{eval_settings.APP_URL}/query",
             json={"query": case["query"], "session_id": f"eval-{case['id']}"},
             headers=headers,
-            timeout=eval_settings.EVAL_TIMEOUT_MS / 1000,
+            timeout=eval_settings.TIMEOUT_MS / 1000,
         )
         latency_ms = (time.perf_counter() - start) * 1000
 
@@ -100,12 +115,10 @@ async def run_single_eval(client: httpx.AsyncClient, case: dict) -> dict:
     # --- Check: Model routing (did it use the right model?) ---
     expected_model = case.get("expected_model")
     model_used = result["model_used"]
-    if expected_model == "flash":
-        model_ok = "flash" in model_used.lower()
-    elif expected_model == "pro":
-        model_ok = "pro" in model_used.lower() or "gpt" in model_used.lower()
-    else:
-        model_ok = True
+    expected_name = TIER_MODELS.get(expected_model)
+    # Substring matching on "flash"/"pro" broke the moment both tiers resolved to
+    # flash models; compare against the resolved name instead.
+    model_ok = (model_used == expected_name) if expected_name else True
 
     # --- Estimate token cost ---
     estimated_tokens = (len(case["query"]) + result["response_length"]) / 4

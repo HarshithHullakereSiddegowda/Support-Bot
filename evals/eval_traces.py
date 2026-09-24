@@ -75,14 +75,16 @@ async def run_and_check_traces():
     async with httpx.AsyncClient() as client:
         for case in dataset:
             token = _make_token()
-            headers = {"Authorization": f"Bearer {token}"}
+            # Cache hits skip the graph entirely, so there would be no node
+            # path to verify. Trace evals must always exercise the real graph.
+            headers = {"Authorization": f"Bearer {token}", "X-Bypass-Cache": "true"}
 
             try:
                 resp = await client.post(
                     f"{eval_settings.APP_URL}/query",
                     json={"query": case["query"], "session_id": f"trace-eval-{case['id']}"},
                     headers=headers,
-                    timeout=30.0,
+                    timeout=eval_settings.TIMEOUT_MS / 1000,
                 )
             except Exception as e:
                 results.append({

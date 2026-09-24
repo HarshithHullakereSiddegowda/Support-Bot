@@ -39,10 +39,15 @@ gptcache>=0.1.43
 
 # Output validation
 ragas>=0.2.0
+# ragas 0.4.x hard-imports langchain_community.chat_models.vertexai, which was
+# removed in langchain-community 0.4.0 during its sunset. Pin below that line.
+langchain-community<0.4.0
 openai>=1.30.0        # ragas uses openai as judge LLM
 
 # Session memory
 asyncpg>=0.29.0       # async postgres driver for LangGraph checkpointer
+langgraph-checkpoint-postgres>=2.0.0   # AsyncPostgresSaver — imported by graph/graph.py
+psycopg[binary,pool]>=3.1.0            # required by the postgres checkpointer
 
 # Resilience
 tenacity>=8.2.0
