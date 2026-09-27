@@ -18,12 +18,39 @@ from presidio_anonymizer import AnonymizerEngine
 _analyzer = AnalyzerEngine()
 _anonymizer = AnonymizerEngine()
 
+# Presidio's NER happily reads Apple product names as people and places, and a
+# redacted product name destroys the question: "What can Siri do on my iPhone?"
+# became "What can <PERSON> do on my iPhone?", which the intent classifier then
+# read as a question about a shared user. Nothing errored -- retrieval,
+# generation and both judges all ran on a corrupted query.
+#
+# allow_list is matched case-insensitively against detected spans.
+PII_ALLOW_LIST = [
+    # assistants and services
+    "Siri", "iCloud", "iMessage", "FaceTime", "AirDrop", "AirPlay", "AirPrint",
+    "CarPlay", "Apple Pay", "Apple Music", "Apple Account", "Apple ID",
+    "App Store", "iTunes", "Apple TV", "Apple Watch", "Apple Books",
+    "Handoff", "Continuity", "Passbook", "Wallet", "Newsstand", "Game Center",
+    # apps that are ordinary words or names
+    "Safari", "Maps", "Notes", "Reminders", "Calendar", "Photos", "Camera",
+    "Mail", "Messages", "Music", "Podcasts", "Stocks", "Weather", "Clock",
+    "Files", "Compass", "Contacts", "Calculator", "Voice Memos", "Health",
+    # hardware and features
+    "iPhone", "iPad", "iPod", "iPod touch", "Mac", "MacBook", "AirPods",
+    "HomePod", "Face ID", "Touch ID", "VoiceOver", "AssistiveTouch",
+    "Personal Hotspot", "Guided Access", "Lockdown Mode", "Spotlight",
+    "Control Center", "Home Screen", "Lock Screen", "Dictation", "Siri Shortcuts",
+    "Stolen Device Protection", "Safety Check", "Screen Time", "Find My",
+    # platform and company
+    "Apple", "iOS", "iPadOS", "macOS", "watchOS", "Bluetooth", "Wi-Fi",
+]
+
 
 # ── Node A: PII scrubbing ─────────────────────────────────────────────────────
 
 def _scrub_pii_sync(text: str) -> tuple[str, list[str]]:
     """Sync + CPU-bound — pushed to thread pool via run_in_executor."""
-    results = _analyzer.analyze(text=text, language="en")
+    results = _analyzer.analyze(text=text, language="en", allow_list=PII_ALLOW_LIST)
     anonymized = _anonymizer.anonymize(text=text, analyzer_results=results)
     found_types = list({r.entity_type for r in results})
     return anonymized.text, found_types

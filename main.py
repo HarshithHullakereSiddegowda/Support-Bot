@@ -8,8 +8,9 @@ from app.middleware.auth import auth_middleware
 from app.middleware.input_guard import input_guard_middleware
 from app.middleware.rate_limit import limiter
 from app.observability.logging import configure_logging, get_logger
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
@@ -42,6 +43,12 @@ async def lifespan(app: FastAPI):
     yield
     await _pg_pool.close()
 
+
+# Declared so /docs renders an Authorize button and generated clients know a
+# bearer token is required. Enforcement still lives in auth_middleware --
+# middleware is invisible to FastAPI's routing, so without this the OpenAPI
+# spec claimed /query was public and Swagger UI offered no way to send a token.
+bearer_scheme = HTTPBearer(auto_error=False, description="JWT signed with JWT_SECRET (HS256)")
 
 app = FastAPI(title="Apple Support Bot", lifespan=lifespan)
 
@@ -95,7 +102,7 @@ async def check_cache(query: str) -> str | None:
 
 # ── Main endpoint ─────────────────────────────────────────────────────────────
 
-@app.post("/query", response_model=QueryResponse)
+@app.post("/query", response_model=QueryResponse, dependencies=[Depends(bearer_scheme)])
 @limiter.limit("30/minute")
 async def query_endpoint(body: QueryRequest, request: Request):
     request_id = str(uuid.uuid4())
@@ -180,6 +187,18 @@ async def query_endpoint(body: QueryRequest, request: Request):
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
+
+@app.get("/", include_in_schema=False)
+async def root():
+    """Unauthenticated landing response. Without this the bare URL returns a
+    bare 401 and the service looks broken to anyone opening the link."""
+    return {
+        "service": "Apple Support Bot",
+        "docs": "/docs",
+        "health": "/health",
+        "query": "POST /query with an Authorization: Bearer <jwt> header",
+    }
+
 
 @app.get("/health")
 async def health():

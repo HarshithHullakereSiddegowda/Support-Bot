@@ -6,7 +6,7 @@ from jose import JWTError, jwt
 
 async def auth_middleware(request: Request, call_next):
     # skip health check endpoint
-    if request.url.path in ("/health", "/docs", "/openapi.json"):
+    if request.url.path in ("/", "/health", "/docs", "/openapi.json"):
         return await call_next(request)
 
     # NOTE: return, do not raise. HTTPException raised inside middleware is not

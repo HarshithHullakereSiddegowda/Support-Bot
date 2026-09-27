@@ -41,3 +41,5 @@ evals/reports/
 # Apple's copyrighted user guide — fetch it yourself, do not redistribute.
 # See CLAUDE.md 3.1 for the indexing command.
 *.pdf
+.env.prod
+*.pdf.bak

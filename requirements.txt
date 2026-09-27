@@ -27,8 +27,11 @@ presidio-anonymizer>=2.2.0
 spacy>=3.7.0
 # run: python -m spacy download en_core_web_lg
 
-# Safety: attack detection (runs in separate microservice, listed here for local dev)
-rival-ai>=0.1.0
+# Safety: attack detection
+# NOT listed here on purpose. rival-ai pulls in torch + transformers (~5GB) and
+# the app never imports it -- graph/nodes/safety_gate.py calls the detector over
+# HTTP at RIVAL_URL. The dependency lives in services/rival_service/requirements.txt,
+# which is the only image that needs it.
 
 # RAG: retrieval
 pageindex>=0.1.0
