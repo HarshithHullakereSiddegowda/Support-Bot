@@ -23,6 +23,17 @@ class Settings(BaseSettings):
     # Face ID?" scored 0.521 and was blocked). Until the detector is evaluated
     # properly, require a confidence above this floor before terminating a request.
     ATTACK_CONFIDENCE_THRESHOLD: float = 0.53
+    # Prompt set under prompts/<version>/. Every loader reads this one value, so
+    # a bump moves all three prompts together. Previously only
+    # query_intelligence.py was versioned; execution.py and completeness.py
+    # hardcoded "v1", so a "bump" would have versioned one prompt of three and
+    # prompt_version in the logs would have been a lie.
+    PROMPT_VERSION: str = "v2"
+    # Corpus used when a request does not name one.
+    DEFAULT_DOC_ID: str = "apple-support"
+    # Shared password the /chat page exchanges for a JWT, so a browser user
+    # never handles a raw token. Empty disables the login endpoint.
+    APP_PASSWORD: str = ""
     MAX_INPUT_CHARS: int = 4000
     MAX_SESSION_TURNS: int = 10
     FAITHFULNESS_THRESHOLD: float = 0.7

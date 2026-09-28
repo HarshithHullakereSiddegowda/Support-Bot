@@ -1,6 +1,7 @@
 # Web framework
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9   # required by FastAPI for the PDF upload form
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 

@@ -1,15 +1,19 @@
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
+from app.api_extra import make_document_endpoints, make_stream_endpoint
+from app.api_extra import router as extra_router
 from app.config import settings
 from app.graph.graph import build_graph
+from app.graph.nodes.context_retrieval import get_mongo
 from app.middleware.auth import auth_middleware
 from app.middleware.input_guard import input_guard_middleware
 from app.middleware.rate_limit import limiter
 from app.observability.logging import configure_logging, get_logger
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBearer
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
@@ -68,6 +72,10 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 class QueryRequest(BaseModel):
     query: str
     session_id: str | None = None
+    # Which indexed corpus to search. /query/stream already accepted this; without
+    # it here, API clients were silently pinned to DEFAULT_DOC_ID and would get an
+    # answer about the wrong document with no indication why.
+    doc_id: str | None = None
 
 
 class QueryResponse(BaseModel):
@@ -78,6 +86,35 @@ class QueryResponse(BaseModel):
     completeness_score: float
     validation_passed: bool
     model_used: str
+
+
+def _blank_state(query: str, session_id: str, request_id: str) -> dict:
+    """Starting state for a request. session_history is deliberately absent: any
+    value passed in overwrites what the checkpointer restored for this thread."""
+    return {
+        "raw_query": query,
+        "session_id": session_id,
+        "request_id": request_id,
+        "scrubbed_query": "",
+        "pii_found": [],
+        "is_attack": False,
+        "attack_confidence": 0.0,
+        "intent": "",
+        "sub_queries": [],
+        "complexity": "low",
+        "needs_decomp": False,
+        "prompt_version": "",
+        "current_subquery": "",
+        "doc_id": settings.DEFAULT_DOC_ID,
+        "retrieved_context": [],
+        "sub_responses": [],
+        "raw_response": "",
+        "model_used": "",
+        "faithfulness_score": 0.0,
+        "completeness_score": 0.0,
+        "validation_passed": False,
+        "final_response": "",
+    }
 
 
 # ── Cache helper ──────────────────────────────────────────────────────────────
@@ -132,33 +169,8 @@ async def query_endpoint(body: QueryRequest, request: Request):
     log.info("cache_miss")
 
     # ── LangGraph invocation ──────────────────────────────────────────────────
-    initial_state = {
-        "raw_query": body.query,
-        "session_id": session_id,
-        "request_id": request_id,
-        # remaining fields populated by nodes
-        "scrubbed_query": "",
-        "pii_found": [],
-        "is_attack": False,
-        "attack_confidence": 0.0,
-        "intent": "",
-        "sub_queries": [],
-        "complexity": "low",
-        "needs_decomp": False,
-        "prompt_version": "",
-        "current_subquery": "",
-        # session_history is deliberately NOT seeded here. Any value passed in
-        # overwrites what the checkpointer restored for this thread_id, and an
-        # empty list would wipe the conversation on every single request.
-        "retrieved_context": [],
-        "sub_responses": [],
-        "raw_response": "",
-        "model_used": "",
-        "faithfulness_score": 0.0,
-        "completeness_score": 0.0,
-        "validation_passed": False,
-        "final_response": "",
-    }
+    initial_state = _blank_state(body.query, session_id, request_id)
+    initial_state["doc_id"] = body.doc_id or settings.DEFAULT_DOC_ID
 
     config = {"configurable": {"thread_id": session_id}}
 
@@ -188,16 +200,45 @@ async def query_endpoint(body: QueryRequest, request: Request):
 
 # ── Health check ──────────────────────────────────────────────────────────────
 
+@app.get("/chat", include_in_schema=False)
+async def chat_page():
+    """The product UI. Served from this app rather than anywhere else because a
+    browser page must be same-origin to call these endpoints without CORS.
+
+    no-store is not optional here. FileResponse sends etag and last-modified but
+    no Cache-Control, so browsers apply heuristic freshness and serve a stored
+    copy WITHOUT revalidating. After a deploy that means users keep running the
+    previous build of the page -- which is exactly how a fixed bug appears to
+    persist. This page is an app shell that changes on every deploy, so it must
+    always be fetched.
+    """
+    page = Path(__file__).resolve().parent / "static" / "chat.html"
+    return FileResponse(
+        page,
+        media_type="text/html",
+        headers={"Cache-Control": "no-store, must-revalidate"},
+    )
+
+
 @app.get("/", include_in_schema=False)
 async def root():
     """Unauthenticated landing response. Without this the bare URL returns a
     bare 401 and the service looks broken to anyone opening the link."""
     return {
         "service": "Apple Support Bot",
+        "chat": "/chat",
         "docs": "/docs",
         "health": "/health",
         "query": "POST /query with an Authorization: Bearer <jwt> header",
     }
+
+
+# ── Chat-page endpoints ───────────────────────────────────────────────────────
+# Factories so api_extra never imports main (which would be circular). They read
+# the module-level graph lazily, because it does not exist until lifespan runs.
+make_stream_endpoint(lambda: _graph, _blank_state)
+make_document_endpoints(get_mongo)
+app.include_router(extra_router)
 
 
 @app.get("/health")

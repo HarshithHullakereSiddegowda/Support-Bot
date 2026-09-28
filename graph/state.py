@@ -39,6 +39,9 @@ class SupportBotState(TypedDict):
     current_subquery: str  # used per-node in fan-out
 
     # --- context ---
+    # Which indexed document to search. Was hardcoded in context_retrieval, so
+    # uploading a second corpus had no way to be reached.
+    doc_id: str
     session_history: list[dict]
     retrieved_context: list[str]
 

@@ -6,7 +6,7 @@ from app.resilience.retry import llm_retry
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 # parents[1] not [2] — this file sits one level down (metrics/), not two.
-_PROMPT = (Path(__file__).resolve().parents[1] / "prompts" / "v1" / "completeness_judge.txt").read_text()
+_PROMPT = (Path(__file__).resolve().parents[1] / "prompts" / settings.PROMPT_VERSION / "completeness_judge.txt").read_text()
 
 _judge = ChatGoogleGenerativeAI(model=settings.UTILITY_MODEL, temperature=0)
 

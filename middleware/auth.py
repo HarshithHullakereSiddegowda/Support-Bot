@@ -3,10 +3,24 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from jose import JWTError, jwt
 
+# Paths reachable without a token.
+#   /chat        the login page itself; it then calls /auth/token for a JWT and
+#                sends that as a bearer header on every subsequent call
+#   /auth/token  the exchange endpoint, which validates a password instead
+#   the rest     health and API documentation
+PUBLIC_PATHS = frozenset({
+    "/", "/chat", "/health", "/docs", "/openapi.json", "/auth/token",
+})
+
 
 async def auth_middleware(request: Request, call_next):
-    # skip health check endpoint
-    if request.url.path in ("/", "/health", "/docs", "/openapi.json"):
+    # Compare on the path with any trailing slash removed. FastAPI would redirect
+    # /chat/ to /chat, but middleware runs BEFORE routing, so an exact-match check
+    # rejected /chat/ with a 401 before the redirect could happen -- the page
+    # simply refused to load for anyone who typed the slash.
+    path = request.url.path
+    normalised = path.rstrip("/") or "/"
+    if normalised in PUBLIC_PATHS:
         return await call_next(request)
 
     # NOTE: return, do not raise. HTTPException raised inside middleware is not

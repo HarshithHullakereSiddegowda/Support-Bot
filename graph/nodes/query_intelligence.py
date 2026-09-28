@@ -8,7 +8,7 @@ from app.resilience.retry import llm_retry
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = settings.PROMPT_VERSION
 _PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
 _PROMPT_TEMPLATE = (_PROMPT_DIR / PROMPT_VERSION / "query_intelligence.txt").read_text()
 

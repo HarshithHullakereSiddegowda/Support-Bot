@@ -35,6 +35,7 @@ out = {
     "LOW_COMPLEXITY_MODEL":   os.environ.get("LOW_COMPLEXITY_MODEL",  "gemini-3.1-flash-lite"),
     "HIGH_COMPLEXITY_MODEL":  os.environ.get("HIGH_COMPLEXITY_MODEL", "gemini-3.5-flash"),
     "UTILITY_MODEL":          os.environ.get("UTILITY_MODEL",         "gemini-3.1-flash-lite"),
+    "PROMPT_VERSION":         os.environ.get("PROMPT_VERSION",        "v2"),
     # Not deployed. The breakers handle both: rival fails open, cache is skipped.
     # Named "-unavailable" so the logs are honest about why the breaker opened.
     "RIVAL_URL":              "http://rival-unavailable:8002",
@@ -44,7 +45,10 @@ out = {
 # every one of these is read at import time, so a missing value means the
 # container dies on startup rather than on first request.
 for k in ("GOOGLE_API_KEY", "OPENAI_API_KEY", "LANGCHAIN_API_KEY", "JWT_SECRET",
-          "PAGEINDEX_API_KEY", "MONGODB_URI", "POSTGRES_DSN"):
+          "PAGEINDEX_API_KEY", "MONGODB_URI", "POSTGRES_DSN",
+          # Password the /chat page exchanges for a JWT. Without it /auth/token
+          # returns 503 and the UI cannot log anyone in.
+          "APP_PASSWORD"):
     v = os.environ.get(k)
     if not v:
         sys.exit(f"ERROR: {k} is not set. Check .env and .env.prod.")

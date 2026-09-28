@@ -21,6 +21,8 @@ services:
       - LOW_COMPLEXITY_MODEL=${LOW_COMPLEXITY_MODEL:-gemini-3.5-flash}
       - HIGH_COMPLEXITY_MODEL=${HIGH_COMPLEXITY_MODEL:-gemini-3.8-flash}
       - UTILITY_MODEL=${UTILITY_MODEL:-gemini-3.5-flash}
+      - APP_PASSWORD=${APP_PASSWORD:-}
+      - PROMPT_VERSION=${PROMPT_VERSION:-v2}
       - GPTCACHE_URL=http://gptcache:8000
       - RIVAL_URL=http://rival-service:8002
       - MONGODB_URI=mongodb://mongodb:27017

@@ -78,15 +78,16 @@ async def context_retrieval_node(state: SupportBotState) -> dict:
     try:
         with pageindex_breaker.calling():
             db = get_mongo()
-            doc = await db.document_trees.find_one({"doc_id": "apple-support"})
+            doc_id = state.get("doc_id") or settings.DEFAULT_DOC_ID
+            doc = await db.document_trees.find_one({"doc_id": doc_id})
             if not doc:
-                log.warning("no_document_tree_found")
+                log.warning("no_document_tree_found", doc_id=doc_id)
                 return {"retrieved_context": []}
 
             relevant_nodes = await _search_tree(doc["tree"], state["scrubbed_query"])
             context = [node.get("text", "") for node in relevant_nodes if node.get("text")]
 
-            log.info("retrieval_complete", num_nodes=len(relevant_nodes))
+            log.info("retrieval_complete", num_nodes=len(relevant_nodes), doc_id=doc_id)
             return {"retrieved_context": context}
 
     except pybreaker.CircuitBreakerError:

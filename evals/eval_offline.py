@@ -11,6 +11,7 @@ These run fast in CI without needing Docker or external services.
 """
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -109,10 +110,13 @@ async def eval_prompt_versioning():
     prompt_dir = Path("prompts")
     results = []
 
+    # Check the version the app actually loads, not a hardcoded one. With "v1"
+    # baked in here, this eval passed while production read a different set.
+    version = os.environ.get("PROMPT_VERSION", "v2")
     expected_prompts = [
-        "v1/query_intelligence.txt",
-        "v1/generation.txt",
-        "v1/completeness_judge.txt",
+        f"{version}/query_intelligence.txt",
+        f"{version}/generation.txt",
+        f"{version}/completeness_judge.txt",
     ]
 
     for prompt_path in expected_prompts:

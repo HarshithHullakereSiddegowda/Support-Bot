@@ -12,7 +12,7 @@ from langgraph.types import Send
 # Anchored to this file's location, not the process CWD — the app is launched
 # from three different directories (Docker /srv, pytest repo root, CI checkout).
 _PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
-_GENERATION_PROMPT = (_PROMPT_DIR / "v1" / "generation.txt").read_text()
+_GENERATION_PROMPT = (_PROMPT_DIR / settings.PROMPT_VERSION / "generation.txt").read_text()
 
 
 def _get_model(complexity: str):
